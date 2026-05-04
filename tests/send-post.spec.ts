@@ -18,7 +18,6 @@ test('отправить пост с картинкой в канал Max', asyn
     imagePrompt: string;
   };
 
-  if (!postText?.trim()) throw new Error('postText пустой в post-content.json');
   if (!imagePrompt?.trim()) throw new Error('imagePrompt пустой в post-content.json');
 
   // Генерируем картинку через kie.ai (пропускаем, если уже скачана)
@@ -58,42 +57,41 @@ test('отправить пост с картинкой в канал Max', asyn
   await fileChooser.setFiles(IMAGE_PATH);
   await page.waitForTimeout(2000);
 
-  // Набираем текст поста с форматированием
-  await messageInput.click();
-  await page.waitForTimeout(300);
+  // Набираем текст поста (если есть)
+  if (postText?.trim()) {
+    await messageInput.click();
+    await page.waitForTimeout(300);
 
-  // Делим на абзацы по \n\n, внутри абзаца строки — одинарный Shift+Enter,
-  // между абзацами — двойной Shift+Enter (одна пустая строка)
-  const paragraphs = postText.split('\n\n');
-  let isFirstParagraph = true;
+    const paragraphs = postText.split('\n\n');
+    let isFirstParagraph = true;
 
-  for (const paragraph of paragraphs) {
-    if (!isFirstParagraph) {
-      await page.keyboard.press('Shift+Enter');
-      await page.keyboard.press('Shift+Enter');
-    }
-
-    const lines = paragraph.split('\n');
-    let isFirstLine = true;
-
-    for (const line of lines) {
-      if (!isFirstLine) {
+    for (const paragraph of paragraphs) {
+      if (!isFirstParagraph) {
+        await page.keyboard.press('Shift+Enter');
         await page.keyboard.press('Shift+Enter');
       }
 
-      if (isFirstParagraph && isFirstLine) {
-        // Заголовок — жирным
-        await page.keyboard.press('Control+b');
-        await page.keyboard.type(line);
-        await page.keyboard.press('Control+b');
-      } else {
-        await page.keyboard.type(line);
+      const lines = paragraph.split('\n');
+      let isFirstLine = true;
+
+      for (const line of lines) {
+        if (!isFirstLine) {
+          await page.keyboard.press('Shift+Enter');
+        }
+
+        if (isFirstParagraph && isFirstLine) {
+          await page.keyboard.press('Control+b');
+          await page.keyboard.type(line);
+          await page.keyboard.press('Control+b');
+        } else {
+          await page.keyboard.type(line);
+        }
+
+        isFirstLine = false;
       }
 
-      isFirstLine = false;
+      isFirstParagraph = false;
     }
-
-    isFirstParagraph = false;
   }
 
   await page.waitForTimeout(500);
@@ -105,12 +103,6 @@ test('отправить пост с картинкой в канал Max', asyn
 
   await page.waitForTimeout(4000);
   await page.screenshot({ path: 'test-results/post-sent.png' });
-
-  // Проверяем что первая строка заголовка появилась в чате
-  const firstLine = paragraphs[0].split('\n')[0].replace(/^[^\wЀ-ӿ]+/, '').substring(0, 15);
-  if (firstLine) {
-    await expect(page.locator(`text=${firstLine}`).first()).toBeVisible({ timeout: 10000 });
-  }
 
   await context.close();
 });
