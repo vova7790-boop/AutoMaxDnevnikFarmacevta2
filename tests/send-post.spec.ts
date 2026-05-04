@@ -42,9 +42,20 @@ test('отправить пост с картинкой в канал Max', asyn
   const messageInput = page.locator('[contenteditable][placeholder="Message"], [contenteditable][placeholder="Пост"]').first();
   await messageInput.waitFor({ state: 'visible', timeout: 20000 });
 
-  // Прикрепляем картинку через скрытый input[type=file]
-  const fileInput = page.locator('input[type=file]').first();
-  await fileInput.setInputFiles(IMAGE_PATH);
+  // Прикрепляем картинку через меню
+  const attachButton = page.locator('button[aria-label="Upload file"], button.button--neutral-link.button--link').first();
+  await attachButton.click();
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: 'test-results/after-attach-click.png' });
+
+  const photoMenuItem = page.locator('button:has-text("Photo or video"), button:has-text("Фото или видео")').first();
+  await photoMenuItem.waitFor({ state: 'visible', timeout: 10000 });
+
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent('filechooser', { timeout: 10000 }),
+    photoMenuItem.click(),
+  ]);
+  await fileChooser.setFiles(IMAGE_PATH);
   await page.waitForTimeout(2000);
 
   // Набираем текст поста с форматированием
