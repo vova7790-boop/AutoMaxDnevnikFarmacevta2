@@ -1,0 +1,9 @@
+node_modules/
+playwright-report/
+test-results/
+session.json
+post-content.json
+post-image.png
+article-check.json
+article-check-result.json
+.env
