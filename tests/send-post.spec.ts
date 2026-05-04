@@ -6,7 +6,7 @@ import { generateImage } from '../src/generate-image';
 const SESSION_PATH = path.resolve('session.json');
 const IMAGE_PATH = path.resolve('post-image.png');
 const CONTENT_PATH = path.resolve('post-content.json');
-const CHANNEL_URL = 'https://web.max.ru/-74167276777563';
+const CHANNEL_URL = 'https://web.max.ru/0';
 
 test('отправить пост с картинкой в канал Max', async ({ browser }) => {
   test.setTimeout(300000); // 5 минут — генерация картинки через kie.ai занимает до 120 сек
@@ -39,21 +39,12 @@ test('отправить пост с картинкой в канал Max', asyn
   await page.waitForFunction(() => document.body.innerText.length > 50, { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(3000);
 
-  const messageInput = page.locator('[contenteditable][placeholder="Пост"]');
+  const messageInput = page.locator('[contenteditable][placeholder="Message"], [contenteditable][placeholder="Пост"]').first();
   await messageInput.waitFor({ state: 'visible', timeout: 20000 });
 
-  // Прикрепляем картинку
-  const attachButton = page.locator('button.button--neutral-link.button--link').first();
-  await attachButton.click();
-
-  const photoMenuItem = page.locator('button.actionsMenuItem', { hasText: 'Фото или видео' });
-  await photoMenuItem.waitFor({ state: 'visible', timeout: 5000 });
-
-  const [fileChooser] = await Promise.all([
-    page.waitForEvent('filechooser', { timeout: 5000 }),
-    photoMenuItem.click(),
-  ]);
-  await fileChooser.setFiles(IMAGE_PATH);
+  // Прикрепляем картинку через скрытый input[type=file]
+  const fileInput = page.locator('input[type=file]').first();
+  await fileInput.setInputFiles(IMAGE_PATH);
   await page.waitForTimeout(2000);
 
   // Набираем текст поста с форматированием
