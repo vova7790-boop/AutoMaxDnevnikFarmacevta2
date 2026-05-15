@@ -20,14 +20,9 @@ test('отправить пост с картинкой в канал Max', asyn
 
   if (!imagePrompt?.trim()) throw new Error('imagePrompt пустой в post-content.json');
 
-  // Генерируем картинку через kie.ai (если уже есть валидный файл — пропускаем)
-  const existingSize = fs.existsSync(IMAGE_PATH) ? fs.statSync(IMAGE_PATH).size : 0;
-  if (existingSize < 1000) {
-    if (fs.existsSync(IMAGE_PATH)) fs.unlinkSync(IMAGE_PATH);
-    await generateImage(imagePrompt, IMAGE_PATH);
-  } else {
-    console.log(`Image already exists (${existingSize} bytes), skipping generation`);
-  }
+  // Всегда генерируем новую картинку для каждого поста
+  if (fs.existsSync(IMAGE_PATH)) fs.unlinkSync(IMAGE_PATH);
+  await generateImage(imagePrompt, IMAGE_PATH);
 
   const context = await browser.newContext({
     storageState: SESSION_PATH,
