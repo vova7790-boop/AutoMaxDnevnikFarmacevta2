@@ -80,12 +80,15 @@ test('отправить пост с картинкой в канал Max', asyn
           await page.keyboard.press('Shift+Enter');
         }
 
-        if (isFirstParagraph && isFirstLine) {
+        const isBold = line.startsWith('**') && line.endsWith('**');
+        const cleanLine = line.replace(/^\*\*|\*\*$/g, '');
+
+        if (isBold) {
           await page.keyboard.press('Control+b');
-          await page.keyboard.type(line);
+          await page.keyboard.type(cleanLine);
           await page.keyboard.press('Control+b');
         } else {
-          await page.keyboard.type(line);
+          await page.keyboard.type(cleanLine);
         }
 
         isFirstLine = false;
