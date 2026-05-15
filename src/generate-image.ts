@@ -33,13 +33,22 @@ function apiRequest(url: string, options: Record<string, unknown> = {}, body?: s
   });
 }
 
-function downloadFile(url: string, dest: string): Promise<void> {
+function downloadFile(url: string, dest: string, redirects = 5): Promise<void> {
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
     const protocol = url.startsWith('https') ? https : http;
     protocol.get(url, (res) => {
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        if (redirects <= 0) return reject(new Error('Too many redirects'));
+        return resolve(downloadFile(res.headers.location, dest, redirects - 1));
+      }
+      if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+        res.resume();
+        return reject(new Error(`HTTP ${res.statusCode} downloading image`));
+      }
+      const file = fs.createWriteStream(dest);
       res.pipe(file);
       file.on('finish', () => file.close(() => resolve()));
+      file.on('error', (err) => { fs.unlink(dest, () => {}); reject(err); });
     }).on('error', (err) => {
       fs.unlink(dest, () => {});
       reject(err);

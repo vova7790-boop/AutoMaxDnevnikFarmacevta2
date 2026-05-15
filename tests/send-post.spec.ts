@@ -54,7 +54,11 @@ test('отправить пост с картинкой в канал Max', asyn
     photoMenuItem.click(),
   ]);
   await fileChooser.setFiles(IMAGE_PATH);
-  await page.waitForTimeout(2000);
+
+  // Ждём появления превью прикреплённой картинки (до 15 сек)
+  await page.waitForSelector('img[src*="blob:"], .attachment-preview, .media-preview, img.thumb', { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(3000);
+  await page.screenshot({ path: 'test-results/after-file-attach.png' });
 
   // Набираем текст поста (если есть)
   if (postText?.trim()) {
