@@ -190,7 +190,7 @@ npx playwright test tests/notion-save.spec.ts
 Сразу после сохранения `post-content.json` — без каких-либо пауз и вопросов — запусти тест через Bash:
 
 ```bash
-npx playwright test tests/send-post.spec.ts
+xvfb-run npx playwright test tests/send-post.spec.ts
 ```
 
 Тест автоматически:
