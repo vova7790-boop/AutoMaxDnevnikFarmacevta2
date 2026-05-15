@@ -9,7 +9,7 @@ const CONTENT_PATH = path.resolve('post-content.json');
 const CHANNEL_URL = 'https://web.max.ru/0';
 
 test('отправить пост с картинкой в канал Max', async ({ browser }) => {
-  test.setTimeout(300000); // 5 минут — генерация картинки через kie.ai занимает до 120 сек
+  test.setTimeout(600000); // 10 минут — генерация картинки через kie.ai может занять до 5 мин
   if (!fs.existsSync(SESSION_PATH)) throw new Error(`Файл сессии не найден: ${SESSION_PATH}`);
   if (!fs.existsSync(CONTENT_PATH)) throw new Error(`Файл контента не найден: ${CONTENT_PATH}. Сначала сгенерируй пост.`);
 
@@ -20,10 +20,8 @@ test('отправить пост с картинкой в канал Max', asyn
 
   if (!imagePrompt?.trim()) throw new Error('imagePrompt пустой в post-content.json');
 
-  // Удаляем старую картинку и генерируем новую через kie.ai
-  if (fs.existsSync(IMAGE_PATH)) {
-    fs.unlinkSync(IMAGE_PATH);
-  }
+  // Всегда генерируем новую картинку для каждого поста
+  if (fs.existsSync(IMAGE_PATH)) fs.unlinkSync(IMAGE_PATH);
   await generateImage(imagePrompt, IMAGE_PATH);
 
   const context = await browser.newContext({
@@ -54,7 +52,11 @@ test('отправить пост с картинкой в канал Max', asyn
     photoMenuItem.click(),
   ]);
   await fileChooser.setFiles(IMAGE_PATH);
-  await page.waitForTimeout(2000);
+
+  // Ждём появления превью прикреплённой картинки (до 15 сек)
+  await page.waitForSelector('img[src*="blob:"], .attachment-preview, .media-preview, img.thumb', { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(3000);
+  await page.screenshot({ path: 'test-results/after-file-attach.png' });
 
   // Набираем текст поста (если есть)
   if (postText?.trim()) {
