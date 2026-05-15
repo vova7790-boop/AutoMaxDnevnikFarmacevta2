@@ -9,7 +9,7 @@ const CONTENT_PATH = path.resolve('post-content.json');
 const CHANNEL_URL = 'https://web.max.ru/0';
 
 test('отправить пост с картинкой в канал Max', async ({ browser }) => {
-  test.setTimeout(300000); // 5 минут — генерация картинки через kie.ai занимает до 120 сек
+  test.setTimeout(600000); // 10 минут — генерация картинки через kie.ai может занять до 5 мин
   if (!fs.existsSync(SESSION_PATH)) throw new Error(`Файл сессии не найден: ${SESSION_PATH}`);
   if (!fs.existsSync(CONTENT_PATH)) throw new Error(`Файл контента не найден: ${CONTENT_PATH}. Сначала сгенерируй пост.`);
 
@@ -20,11 +20,14 @@ test('отправить пост с картинкой в канал Max', asyn
 
   if (!imagePrompt?.trim()) throw new Error('imagePrompt пустой в post-content.json');
 
-  // Удаляем старую картинку и генерируем новую через kie.ai
-  if (fs.existsSync(IMAGE_PATH)) {
-    fs.unlinkSync(IMAGE_PATH);
+  // Генерируем картинку через kie.ai (если уже есть валидный файл — пропускаем)
+  const existingSize = fs.existsSync(IMAGE_PATH) ? fs.statSync(IMAGE_PATH).size : 0;
+  if (existingSize < 1000) {
+    if (fs.existsSync(IMAGE_PATH)) fs.unlinkSync(IMAGE_PATH);
+    await generateImage(imagePrompt, IMAGE_PATH);
+  } else {
+    console.log(`Image already exists (${existingSize} bytes), skipping generation`);
   }
-  await generateImage(imagePrompt, IMAGE_PATH);
 
   const context = await browser.newContext({
     storageState: SESSION_PATH,
