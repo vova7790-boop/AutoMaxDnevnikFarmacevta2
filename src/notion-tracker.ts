@@ -45,7 +45,7 @@ export async function checkArticleByUrl(
     page_size: 1,
   })) as { results: unknown[] };
 
-  const urlMatch = urlCheckRes.results.length > 0;
+  const urlMatch = (urlCheckRes?.results?.length ?? 0) > 0;
 
   const recentRes = (await notionRequest('POST', `/databases/${DATABASE_ID}/query`, {
     sorts: [{ property: 'Дата', direction: 'descending' }],
@@ -58,7 +58,7 @@ export async function checkArticleByUrl(
     }>;
   };
 
-  const recentDescriptions = recentRes.results
+  const recentDescriptions = (recentRes?.results ?? [])
     .map((page) => {
       const rt = page.properties['Краткое но точное описание сути статьи']?.rich_text;
       return rt?.map((t) => t.plain_text).join('') ?? '';
