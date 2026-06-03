@@ -38,11 +38,16 @@ function setStatus(s) {
   // Признак успешного входа: исчезает QR canvas И появляется список чатов / поле ввода
   function loggedInCheck() {
     return page.evaluate(() => {
-      const hasInput = !!document.querySelector('[contenteditable]');
       const text = document.body.innerText || '';
-      const hasChats = text.length > 400;
-      const hasCanvas = !!document.querySelector('canvas');
-      return { hasInput, hasChats, hasCanvas, url: location.href };
+      return {
+        hasInput: !!document.querySelector('[contenteditable]'),
+        hasPwScreen: !!document.querySelector('input[type="password"]'),
+        hasSignIn: /Sign in to MAX|Войдите|QR code|QR-код/i.test(text),
+        textLen: text.length,
+        snippet: text.replace(/\s+/g, ' ').slice(0, 160),
+        hasCanvas: !!document.querySelector('canvas'),
+        url: location.href,
+      };
     });
   }
 
@@ -69,26 +74,37 @@ function setStatus(s) {
 
   const deadline = Date.now() + 5 * 60 * 1000; // ждём вход до 5 минут
   let loggedIn = false;
+  let okStreak = 0;
   while (Date.now() < deadline) {
     await page.waitForTimeout(4000);
 
-    // Сначала проверяем экран доп.пароля
-    try { if (await tryPassword()) { /* возможно ещё грузится */ } } catch (e) { setStatus('PW_ERR:' + e.message); }
+    // Экран доп.пароля
+    try { await tryPassword(); } catch (e) { setStatus('PW_ERR:' + e.message); }
 
     let st;
     try { st = await loggedInCheck(); } catch { continue; }
-    const hasPwScreen = await page.$('input[type="password"]').then(Boolean).catch(() => false);
-    // Пока не вошёл (есть QR-экран, нет поля ввода и нет экрана пароля) — обновляем QR, он протухает
-    if (!st.hasInput && !hasPwScreen && st.url.includes('web.max.ru') && !st.hasChats) {
+
+    // Живой снимок текущего экрана для диагностики
+    try { await page.screenshot({ path: 'live-screen.png' }); } catch {}
+
+    // Экран входа (QR или пароль) ещё на месте — обновляем QR
+    if (st.hasSignIn && !st.hasPwScreen) {
       await snapQR();
-      setStatus('QR_REFRESHED:' + Date.now());
+      setStatus(`QR_REFRESHED len=${st.textLen} | ${st.snippet}`);
+      okStreak = 0;
       continue;
     }
-    if (st.hasInput || st.hasChats) {
-      // Двойная проверка через 4с, чтобы не словить переходный экран
-      await page.waitForTimeout(4000);
-      const st2 = await loggedInCheck();
-      if (st2.hasInput || (!st2.hasCanvas && st2.hasChats)) {
+    if (st.hasPwScreen) {
+      setStatus(`PW_SCREEN_STILL len=${st.textLen} | ${st.snippet}`);
+      okStreak = 0;
+      continue;
+    }
+
+    // Нет экрана входа и нет пароля → вероятно вошли. Требуем 2 подряд таких проверки.
+    if (st.url.includes('web.max.ru')) {
+      okStreak++;
+      setStatus(`MAYBE_IN streak=${okStreak} input=${st.hasInput} len=${st.textLen} | ${st.snippet}`);
+      if (okStreak >= 2 && (st.hasInput || st.textLen > 200)) {
         loggedIn = true;
         break;
       }
