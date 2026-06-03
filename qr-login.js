@@ -52,9 +52,10 @@ function setStatus(s) {
     await page.waitForTimeout(4000);
     let st;
     try { st = await loggedInCheck(); } catch { continue; }
-    // Пока не вошёл — обновляем картинку QR (он может протухать)
-    if (st.hasCanvas && !st.hasInput) {
+    // Пока не вошёл (есть QR-экран, нет поля ввода) — обновляем картинку QR, он протухает
+    if (!st.hasInput && st.url.includes('web.max.ru') && !st.hasChats) {
       await snapQR();
+      setStatus('QR_REFRESHED:' + Date.now());
       continue;
     }
     if (st.hasInput || st.hasChats) {
