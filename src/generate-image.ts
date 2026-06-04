@@ -15,6 +15,8 @@ function apiRequest(url: string, options: Record<string, unknown> = {}, body?: s
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
         'Content-Type': 'application/json',
+        'User-Agent': 'curl/7.88.1',
+        'Accept': '*/*',
         ...(options.headers as Record<string, string> || {}),
       },
     };
