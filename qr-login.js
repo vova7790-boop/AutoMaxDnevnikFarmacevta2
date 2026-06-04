@@ -42,7 +42,7 @@ function setStatus(s) {
       return {
         hasInput: !!document.querySelector('[contenteditable]'),
         hasPwScreen: !!document.querySelector('input[type="password"]'),
-        hasSignIn: /Sign in to MAX|Войдите|QR code|QR-код/i.test(text),
+        hasSignIn: text.length < 300 && /Sign in to MAX|Войдите|QR code|QR-код/i.test(text),
         textLen: text.length,
         snippet: text.replace(/\s+/g, ' ').slice(0, 160),
         hasCanvas: !!document.querySelector('canvas'),
