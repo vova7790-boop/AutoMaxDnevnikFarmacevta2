@@ -134,13 +134,24 @@ npx playwright test tests/notion-check.spec.ts
 
 ## Шаг 5 — Сохранение в Notion
 
-Убедись, что в `post-content.json` есть поля `articleTitle`, `articleUrl`, `articleDescription` (добавь их при сохранении в шаге 7). Затем запусти через Bash:
+> ⚠️ **`notion-save.spec.ts` не работает** — возвращает 401 (NOTION_TOKEN невалидный).
+> Используй вместо него Notion MCP напрямую.
 
-```bash
-npx playwright test tests/notion-save.spec.ts
+Сохрани запись через Notion MCP (`notion-create-pages`):
+
+```json
+{
+  "parent": { "type": "data_source_id", "data_source_id": "7904954e-7d46-4416-b53d-2a25b87a4179" },
+  "pages": [{
+    "properties": {
+      "Заголовок": "<articleTitle>",
+      "userDefined:URL": "<articleUrl>",
+      "Краткое но точное описание сути статьи": "<articleDescription>",
+      "date:Дата:start": "<YYYY-MM-DD сегодня>"
+    }
+  }]
+}
 ```
-
-Скрипт автоматически запишет запись в базу `used_articles` с текущей датой.
 
 ---
 
@@ -199,7 +210,7 @@ npx playwright test tests/notion-save.spec.ts
 Сразу после сохранения `post-content.json` — без каких-либо пауз и вопросов — запусти тест через Bash:
 
 ```bash
-xvfb-run npx playwright test tests/send-post.spec.ts
+xvfb-run --auto-servernum npx playwright test tests/send-post.spec.ts
 ```
 
 Тест автоматически:
