@@ -68,9 +68,10 @@ async function createTask(prompt: string): Promise<string> {
   return res.data.taskId;
 }
 
-async function pollResult(taskId: string, timeoutMs = 300000): Promise<string> {
+async function pollResult(taskId: string, timeoutMs = 600000): Promise<string> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
+    const elapsed = Math.round((Date.now() - start) / 1000);
     const res = await apiRequest(`${BASE_URL}/recordInfo?taskId=${taskId}`) as {
       code: number;
       data: { state: string; resultJson: string; failMsg: string };
@@ -78,16 +79,19 @@ async function pollResult(taskId: string, timeoutMs = 300000): Promise<string> {
 
     if (res.code === 200) {
       const { state, resultJson, failMsg } = res.data;
+      console.log(`[${elapsed}s] Image state: ${state}`);
       if (state === 'success') {
         const { resultUrls } = JSON.parse(resultJson) as { resultUrls: string[] };
         return resultUrls[0];
       }
-      if (state === 'fail') throw new Error(`Generation failed: ${failMsg}`);
+      if (state === 'fail') throw new Error(`KIE_AI_GENERATION_FAILED: ${failMsg || 'unknown error from kie.ai'}`);
+    } else {
+      console.log(`[${elapsed}s] API response code: ${res.code}`);
     }
 
     await new Promise((r) => setTimeout(r, 10000));
   }
-  throw new Error('Image generation timed out after 120s');
+  throw new Error('KIE_AI_TIMEOUT: image generation did not complete within 10 minutes');
 }
 
 export async function generateImage(prompt: string, outputPath: string): Promise<void> {

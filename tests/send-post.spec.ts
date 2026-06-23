@@ -22,7 +22,19 @@ test('отправить пост с картинкой в канал Max', asyn
 
   // Всегда генерируем новую картинку для каждого поста
   if (fs.existsSync(IMAGE_PATH)) fs.unlinkSync(IMAGE_PATH);
-  await generateImage(imagePrompt, IMAGE_PATH);
+  const STATUS_PATH = path.resolve('kie-ai-status.json');
+  try {
+    await generateImage(imagePrompt, IMAGE_PATH);
+    fs.writeFileSync(STATUS_PATH, JSON.stringify({ ok: true, ts: Date.now() }));
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.startsWith('KIE_AI_')) {
+      fs.writeFileSync(STATUS_PATH, JSON.stringify({ ok: false, error: msg, ts: Date.now() }));
+      console.error(`\n❌ KIE.AI ERROR: ${msg}`);
+      console.error('Статус записан в kie-ai-status.json. Остановите публикацию и повторите позже.\n');
+    }
+    throw err; // всегда пробрасываем — тест упадёт с exit code 1
+  }
 
   const context = await browser.newContext({
     storageState: SESSION_PATH,
