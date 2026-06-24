@@ -27,7 +27,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], headless: true },
+      use: {
+        ...devices['Desktop Chrome'],
+        headless: true,
+        launchOptions: {
+          executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+        },
+      },
     },
   ],
 });
