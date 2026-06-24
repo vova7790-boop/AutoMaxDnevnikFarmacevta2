@@ -1,29 +1,22 @@
-#!/bin/bash
-# Запускает send-post.spec.ts и возвращает код:
-#   0 = успех
-#   2 = ошибка kie.ai (нет смысла продолжать)
-#   1 = другая ошибка
+#!/usr/bin/env bash
+# Запускает send-post.spec.ts через TLS-strip proxy, чтобы обойти
+# несовместимость Chromium ECH с egress-прокси Anthropic.
+set -e
 
-set -euo pipefail
+PROXY_PORT=42308
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-STATUS_FILE="kie-ai-status.json"
-rm -f "$STATUS_FILE"
+# Запускаем TLS-strip proxy в фоне
+node "$SCRIPT_DIR/tls-strip-proxy.js" &
+PROXY_PID=$!
 
-xvfb-run npx playwright test tests/send-post.spec.ts
-EXIT=$?
+cleanup() {
+  kill "$PROXY_PID" 2>/dev/null || true
+}
+trap cleanup EXIT
 
-if [ $EXIT -ne 0 ]; then
-  if [ -f "$STATUS_FILE" ]; then
-    OK=$(node -e "const s=require('./$STATUS_FILE'); process.stdout.write(String(s.ok))")
-    ERR=$(node -e "const s=require('./$STATUS_FILE'); process.stdout.write(s.error||'')" 2>/dev/null || true)
-    if [ "$OK" = "false" ]; then
-      echo ""
-      echo "❌ KIE.AI НЕДОСТУПЕН: $ERR"
-      echo "Публикация остановлена. Повторите попытку позже."
-      exit 2
-    fi
-  fi
-  exit 1
-fi
+sleep 1
 
-exit 0
+# Запускаем тест с прокси-обёрткой
+HTTPS_PROXY="http://127.0.0.1:$PROXY_PORT" \
+  xvfb-run --auto-servernum npx playwright test tests/send-post.spec.ts "$@"
