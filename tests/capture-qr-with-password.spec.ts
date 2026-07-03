@@ -2,13 +2,21 @@ import { test } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 
-const SESSION_PATH = path.resolve('session.json');
+const PROFILE_DIR = path.resolve('browser-profile');
 const QR_PATH = path.resolve('qr-screenshot.png');
 const PASSWORD = process.env.MAX_PASSWORD || '';
 
 test('capture QR and save session with password', async ({ playwright }) => {
-  const browser = await playwright.chromium.launch({ headless: false, executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--disable-setuid-sandbox'], proxy: { server: 'http://127.0.0.1:46877' } });
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  fs.mkdirSync(PROFILE_DIR, { recursive: true });
+
+  const context = await playwright.chromium.launchPersistentContext(PROFILE_DIR, {
+    headless: false,
+    executablePath: '/opt/pw-browsers/chromium',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    proxy: { server: 'http://127.0.0.1:46877' },
+    ignoreHTTPSErrors: true,
+  });
+
   const page = await context.newPage();
 
   await page.goto('https://web.max.ru/-74167276777563', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -44,9 +52,9 @@ test('capture QR and save session with password', async ({ playwright }) => {
     console.log('Поле пароля не найдено, продолжаю...');
   }
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(5000);
   await page.screenshot({ path: QR_PATH });
+  console.log(`Профиль браузера сохранён: ${PROFILE_DIR}`);
 
-  await context.storageState({ path: SESSION_PATH });
-  console.log(`Сессия сохранена: ${SESSION_PATH}`);
+  await context.close();
 });

@@ -1,16 +1,16 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 import { generateImage } from '../src/generate-image';
 
-const SESSION_PATH = path.resolve('session.json');
+const PROFILE_DIR = path.resolve('browser-profile');
 const IMAGE_PATH = path.resolve('post-image.png');
 const CONTENT_PATH = path.resolve('post-content.json');
 const CHANNEL_URL = 'https://web.max.ru/0';
 
-test('отправить пост с картинкой в канал Max', async ({ browser }) => {
+test('отправить пост с картинкой в канал Max', async ({ playwright }) => {
   test.setTimeout(600000); // 10 минут — генерация картинки через kie.ai может занять до 5 мин
-  if (!fs.existsSync(SESSION_PATH)) throw new Error(`Файл сессии не найден: ${SESSION_PATH}`);
+  if (!fs.existsSync(PROFILE_DIR)) throw new Error(`Профиль браузера не найден: ${PROFILE_DIR}. Сначала запусти capture-qr-with-password.spec.ts`);
   if (!fs.existsSync(CONTENT_PATH)) throw new Error(`Файл контента не найден: ${CONTENT_PATH}. Сначала сгенерируй пост.`);
 
   const { postText, imagePrompt } = JSON.parse(fs.readFileSync(CONTENT_PATH, 'utf-8')) as {
@@ -33,11 +33,15 @@ test('отправить пост с картинкой в канал Max', asyn
       console.error(`\n❌ KIE.AI ERROR: ${msg}`);
       console.error('Статус записан в kie-ai-status.json. Остановите публикацию и повторите позже.\n');
     }
-    throw err; // всегда пробрасываем — тест упадёт с exit code 1
+    throw err;
   }
 
-  const context = await browser.newContext({
-    storageState: SESSION_PATH,
+  // Используем постоянный профиль браузера (сохраняет IndexedDB с авторизацией)
+  const context = await playwright.chromium.launchPersistentContext(PROFILE_DIR, {
+    headless: false,
+    executablePath: '/opt/pw-browsers/chromium',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    proxy: { server: 'http://127.0.0.1:46877' },
     ignoreHTTPSErrors: true,
     viewport: { width: 1280, height: 720 },
   });
@@ -46,8 +50,9 @@ test('отправить пост с картинкой в канал Max', asyn
   await page.goto(CHANNEL_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForFunction(() => document.body.innerText.length > 50, { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(3000);
+  await page.screenshot({ path: 'test-results/after-goto.png' });
 
-  const messageInput = page.locator('[contenteditable][placeholder="Message"], [contenteditable][placeholder="Пост"]').first();
+  const messageInput = page.locator('[contenteditable][placeholder="Message"], [contenteditable][placeholder="Пост"], [contenteditable]').first();
   await messageInput.waitFor({ state: 'visible', timeout: 20000 });
 
   // Прикрепляем картинку через меню
