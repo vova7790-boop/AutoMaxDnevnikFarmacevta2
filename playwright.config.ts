@@ -29,9 +29,11 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        headless: true,
         launchOptions: {
-          executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+          executablePath: '/opt/pw-browsers/chromium',
+          headless: false,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+          proxy: { server: 'http://127.0.0.1:46877' },
         },
       },
     },

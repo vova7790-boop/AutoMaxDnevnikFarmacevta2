@@ -4,14 +4,14 @@ import fs from 'fs';
 
 const SESSION_PATH = path.resolve('session.json');
 const QR_PATH = path.resolve('qr-screenshot.png');
-const PASSWORD = 'Hibari7990';
+const PASSWORD = process.env.MAX_PASSWORD || '';
 
 test('capture QR and save session with password', async ({ playwright }) => {
-  const browser = await playwright.chromium.launch({ headless: true });
+  const browser = await playwright.chromium.launch({ headless: false, executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--disable-setuid-sandbox'], proxy: { server: 'http://127.0.0.1:46877' } });
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
 
-  await page.goto('https://web.max.ru/-74167276777563', { waitUntil: 'networkidle', timeout: 30000 });
+  await page.goto('https://web.max.ru/-74167276777563', { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForTimeout(3000);
   await page.screenshot({ path: QR_PATH, fullPage: false });
   console.log(`Скриншот сохранён: ${QR_PATH}`);
