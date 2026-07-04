@@ -41,7 +41,7 @@ test('отправить пост с картинкой в канал Max', asyn
     headless: false,
     executablePath: '/opt/pw-browsers/chromium',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    proxy: { server: 'http://127.0.0.1:46877' },
+    proxy: { server: process.env.HTTPS_PROXY || 'http://127.0.0.1:46877' },
     ignoreHTTPSErrors: true,
     viewport: { width: 1280, height: 720 },
   });
