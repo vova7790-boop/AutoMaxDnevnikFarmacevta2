@@ -13,7 +13,7 @@ test('capture QR and save session with password', async ({ playwright }) => {
     headless: false,
     executablePath: '/opt/pw-browsers/chromium',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    proxy: { server: 'http://127.0.0.1:46877' },
+    proxy: { server: process.env.HTTPS_PROXY || 'http://127.0.0.1:46877' },
     ignoreHTTPSErrors: true,
   });
 
