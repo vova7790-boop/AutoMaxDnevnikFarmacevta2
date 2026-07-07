@@ -68,7 +68,7 @@ async function createTask(prompt: string): Promise<string> {
   return res.data.taskId;
 }
 
-async function pollResult(taskId: string, timeoutMs = 600000): Promise<string> {
+async function pollResult(taskId: string, timeoutMs: number): Promise<string> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const elapsed = Math.round((Date.now() - start) / 1000);
@@ -91,17 +91,42 @@ async function pollResult(taskId: string, timeoutMs = 600000): Promise<string> {
 
     await new Promise((r) => setTimeout(r, 10000));
   }
-  throw new Error('KIE_AI_TIMEOUT: image generation did not complete within 10 minutes');
+  throw new Error('KIE_AI_TIMEOUT');
+}
+
+function simplifyPrompt(prompt: string): string {
+  // Keep only the first sentence and add a minimal style directive
+  const first = prompt.split(/[.;]/)[0].trim();
+  return `${first}. Flat design, white background, minimal detail.`;
 }
 
 export async function generateImage(prompt: string, outputPath: string): Promise<void> {
   console.log(`Generating image: "${prompt}"`);
-  const taskId = await createTask(prompt);
+  const FIVE_MIN = 300000;
+
+  let taskId = await createTask(prompt);
   console.log(`Task created: ${taskId}`);
 
-  const imageUrl = await pollResult(taskId);
-  console.log(`Image ready: ${imageUrl}`);
+  let imageUrl: string;
+  try {
+    imageUrl = await pollResult(taskId, FIVE_MIN);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'KIE_AI_TIMEOUT') {
+      const simplified = simplifyPrompt(prompt);
+      console.log(`\n⚠️ Таймаут 5 мин. Упрощаю промт и повторяю: "${simplified}"`);
+      taskId = await createTask(simplified);
+      console.log(`Retry task created: ${taskId}`);
+      try {
+        imageUrl = await pollResult(taskId, FIVE_MIN);
+      } catch (retryErr) {
+        throw new Error('KIE_AI_TIMEOUT_AFTER_RETRY: генерация не завершилась за 10 минут даже с упрощённым промтом');
+      }
+    } else {
+      throw err;
+    }
+  }
 
+  console.log(`Image ready: ${imageUrl}`);
   await downloadFile(imageUrl, outputPath);
   console.log(`Image saved to: ${outputPath}`);
 }
