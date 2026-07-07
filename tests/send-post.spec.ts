@@ -20,9 +20,9 @@ test('отправить пост с картинкой в канал Max', asyn
 
   if (!imagePrompt?.trim()) throw new Error('imagePrompt пустой в post-content.json');
 
-  // Всегда генерируем новую картинку для каждого поста
-  if (fs.existsSync(IMAGE_PATH)) fs.unlinkSync(IMAGE_PATH);
+  // Генерируем картинку только если её ещё нет
   const STATUS_PATH = path.resolve('kie-ai-status.json');
+  if (!fs.existsSync(IMAGE_PATH)) {
   try {
     await generateImage(imagePrompt, IMAGE_PATH);
     fs.writeFileSync(STATUS_PATH, JSON.stringify({ ok: true, ts: Date.now() }));
@@ -35,6 +35,7 @@ test('отправить пост с картинкой в канал Max', asyn
     }
     throw err;
   }
+  } // end if (!fs.existsSync(IMAGE_PATH))
 
   // Используем постоянный профиль браузера (сохраняет IndexedDB с авторизацией)
   const context = await playwright.chromium.launchPersistentContext(PROFILE_DIR, {
