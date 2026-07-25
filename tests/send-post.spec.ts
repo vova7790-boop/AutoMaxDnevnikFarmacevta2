@@ -20,12 +20,18 @@ test('отправить пост с картинкой в канал Max', asyn
 
   if (!imagePrompt?.trim()) throw new Error('imagePrompt пустой в post-content.json');
 
-  // Генерируем картинку только если её ещё нет
   const STATUS_PATH = path.resolve('kie-ai-status.json');
-  if (!fs.existsSync(IMAGE_PATH)) {
+  const reuseImage = process.env.REUSE_IMAGE === '1' && fs.existsSync(IMAGE_PATH);
+  if (reuseImage) {
+    console.log('REUSE_IMAGE=1: используем уже сгенерированную post-image.png, пропускаем kie.ai');
+  }
+  // По умолчанию генерируем новую картинку для каждого поста
   try {
-    await generateImage(imagePrompt, IMAGE_PATH);
-    fs.writeFileSync(STATUS_PATH, JSON.stringify({ ok: true, ts: Date.now() }));
+    if (!reuseImage) {
+      if (fs.existsSync(IMAGE_PATH)) fs.unlinkSync(IMAGE_PATH);
+      await generateImage(imagePrompt, IMAGE_PATH);
+      fs.writeFileSync(STATUS_PATH, JSON.stringify({ ok: true, ts: Date.now() }));
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.startsWith('KIE_AI_')) {
@@ -35,14 +41,13 @@ test('отправить пост с картинкой в канал Max', asyn
     }
     throw err;
   }
-  } // end if (!fs.existsSync(IMAGE_PATH))
 
   // Используем постоянный профиль браузера (сохраняет IndexedDB с авторизацией)
   const context = await playwright.chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
     executablePath: '/opt/pw-browsers/chromium',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    proxy: { server: process.env.HTTPS_PROXY || 'http://127.0.0.1:46877' },
+    proxy: { server: process.env.MAX_PROXY || process.env.HTTPS_PROXY || 'http://127.0.0.1:36531' },
     ignoreHTTPSErrors: true,
     viewport: { width: 1280, height: 720 },
   });
