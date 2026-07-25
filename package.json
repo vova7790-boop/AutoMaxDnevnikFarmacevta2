@@ -17,6 +17,7 @@
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.49.0",
-    "@types/node": "^26.1.0"
+    "@types/node": "^26.1.0",
+    "https-proxy-agent": "^9.1.0"
   }
 }

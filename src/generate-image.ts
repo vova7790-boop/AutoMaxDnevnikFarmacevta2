@@ -1,14 +1,16 @@
 import https from 'https';
 import http from 'http';
 import fs from 'fs';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const API_KEY = '485497e3a8feedb5ebd50d7d124fa034';
 const BASE_URL = 'https://api.kie.ai/api/v1/jobs';
+const PROXY = process.env.HTTPS_PROXY || process.env.https_proxy || '';
 
 function apiRequest(url: string, options: Record<string, unknown> = {}, body?: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
-    const reqOptions = {
+    const reqOptions: https.RequestOptions = {
       hostname: parsed.hostname,
       path: parsed.pathname + parsed.search,
       method: (options.method as string) || 'GET',
@@ -19,6 +21,7 @@ function apiRequest(url: string, options: Record<string, unknown> = {}, body?: s
         'Accept': '*/*',
         ...(options.headers as Record<string, string> || {}),
       },
+      ...(PROXY ? { agent: new HttpsProxyAgent(PROXY) } : {}),
     };
 
     const req = https.request(reqOptions, (res) => {
@@ -37,8 +40,10 @@ function apiRequest(url: string, options: Record<string, unknown> = {}, body?: s
 
 function downloadFile(url: string, dest: string, redirects = 5): Promise<void> {
   return new Promise((resolve, reject) => {
-    const protocol = url.startsWith('https') ? https : http;
-    protocol.get(url, (res) => {
+    const isHttps = url.startsWith('https');
+    const protocol = isHttps ? https : http;
+    const getOptions: https.RequestOptions = PROXY && isHttps ? { agent: new HttpsProxyAgent(PROXY) } : {};
+    protocol.get(url, getOptions, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         if (redirects <= 0) return reject(new Error('Too many redirects'));
         return resolve(downloadFile(res.headers.location, dest, redirects - 1));
@@ -68,7 +73,7 @@ async function createTask(prompt: string): Promise<string> {
   return res.data.taskId;
 }
 
-async function pollResult(taskId: string, timeoutMs = 600000): Promise<string> {
+async function pollResult(taskId: string, timeoutMs: number): Promise<string> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const elapsed = Math.round((Date.now() - start) / 1000);
@@ -91,17 +96,42 @@ async function pollResult(taskId: string, timeoutMs = 600000): Promise<string> {
 
     await new Promise((r) => setTimeout(r, 10000));
   }
-  throw new Error('KIE_AI_TIMEOUT: image generation did not complete within 10 minutes');
+  throw new Error('KIE_AI_TIMEOUT');
+}
+
+function simplifyPrompt(prompt: string): string {
+  // Keep only the first sentence and add a minimal style directive
+  const first = prompt.split(/[.;]/)[0].trim();
+  return `${first}. Flat design, white background, minimal detail.`;
 }
 
 export async function generateImage(prompt: string, outputPath: string): Promise<void> {
   console.log(`Generating image: "${prompt}"`);
-  const taskId = await createTask(prompt);
+  const FIVE_MIN = 300000;
+
+  let taskId = await createTask(prompt);
   console.log(`Task created: ${taskId}`);
 
-  const imageUrl = await pollResult(taskId);
-  console.log(`Image ready: ${imageUrl}`);
+  let imageUrl: string;
+  try {
+    imageUrl = await pollResult(taskId, FIVE_MIN);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'KIE_AI_TIMEOUT') {
+      const simplified = simplifyPrompt(prompt);
+      console.log(`\n⚠️ Таймаут 5 мин. Упрощаю промт и повторяю: "${simplified}"`);
+      taskId = await createTask(simplified);
+      console.log(`Retry task created: ${taskId}`);
+      try {
+        imageUrl = await pollResult(taskId, FIVE_MIN);
+      } catch (retryErr) {
+        throw new Error('KIE_AI_TIMEOUT_AFTER_RETRY: генерация не завершилась за 10 минут даже с упрощённым промтом');
+      }
+    } else {
+      throw err;
+    }
+  }
 
+  console.log(`Image ready: ${imageUrl}`);
   await downloadFile(imageUrl, outputPath);
   console.log(`Image saved to: ${outputPath}`);
 }
