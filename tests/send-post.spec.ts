@@ -20,26 +20,26 @@ test('отправить пост с картинкой в канал Max', asyn
 
   if (!imagePrompt?.trim()) throw new Error('imagePrompt пустой в post-content.json');
 
+  // REUSE_IMAGE=1 — переиспользовать уже сгенерированную post-image.png (не звать kie.ai).
+  // Полезно при повторе, когда картинка уже есть, а упал только постинг в Max.
   const STATUS_PATH = path.resolve('kie-ai-status.json');
   const reuseImage = process.env.REUSE_IMAGE === '1' && fs.existsSync(IMAGE_PATH);
   if (reuseImage) {
-    console.log('REUSE_IMAGE=1: используем уже сгенерированную post-image.png, пропускаем kie.ai');
-  }
-  // По умолчанию генерируем новую картинку для каждого поста
-  try {
-    if (!reuseImage) {
-      if (fs.existsSync(IMAGE_PATH)) fs.unlinkSync(IMAGE_PATH);
+    console.log('REUSE_IMAGE=1: использую уже сгенерированную post-image.png, пропускаю kie.ai');
+  } else {
+    if (fs.existsSync(IMAGE_PATH)) fs.unlinkSync(IMAGE_PATH);
+    try {
       await generateImage(imagePrompt, IMAGE_PATH);
       fs.writeFileSync(STATUS_PATH, JSON.stringify({ ok: true, ts: Date.now() }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.startsWith('KIE_AI_')) {
+        fs.writeFileSync(STATUS_PATH, JSON.stringify({ ok: false, error: msg, ts: Date.now() }));
+        console.error(`\n❌ KIE.AI ERROR: ${msg}`);
+        console.error('Статус записан в kie-ai-status.json. Остановите публикацию и повторите позже.\n');
+      }
+      throw err;
     }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.startsWith('KIE_AI_')) {
-      fs.writeFileSync(STATUS_PATH, JSON.stringify({ ok: false, error: msg, ts: Date.now() }));
-      console.error(`\n❌ KIE.AI ERROR: ${msg}`);
-      console.error('Статус записан в kie-ai-status.json. Остановите публикацию и повторите позже.\n');
-    }
-    throw err;
   }
 
   // Используем постоянный профиль браузера (сохраняет IndexedDB с авторизацией)
@@ -53,13 +53,30 @@ test('отправить пост с картинкой в канал Max', asyn
   });
   const page = await context.newPage();
 
-  await page.goto(CHANNEL_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForFunction(() => document.body.innerText.length > 50, { timeout: 30000 }).catch(() => {});
-  await page.waitForTimeout(3000);
-  await page.screenshot({ path: 'test-results/after-goto.png' });
-
   const messageInput = page.locator('[contenteditable][placeholder="Message"], [contenteditable][placeholder="Пост"], [contenteditable]').first();
-  await messageInput.waitFor({ state: 'visible', timeout: 20000 });
+
+  // Max — SPA, поле ввода иногда появляется не сразу (медленная сеть/загрузка бандла).
+  // Делаем до 3 попыток с перезагрузкой и увеличенными таймаутами.
+  let composerReady = false;
+  for (let attempt = 1; attempt <= 3 && !composerReady; attempt++) {
+    console.log(`Открываю канал Max (попытка ${attempt}/3)...`);
+    if (attempt === 1) {
+      await page.goto(CHANNEL_URL, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+    } else {
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+    }
+    await page.waitForFunction(() => document.body.innerText.length > 50, { timeout: 45000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+    try {
+      await messageInput.waitFor({ state: 'visible', timeout: 45000 });
+      composerReady = true;
+    } catch {
+      console.log(`Поле ввода не появилось за 45 сек (попытка ${attempt}/3).`);
+      await page.screenshot({ path: `test-results/composer-fail-${attempt}.png` }).catch(() => {});
+    }
+  }
+  await page.screenshot({ path: 'test-results/after-goto.png' });
+  if (!composerReady) throw new Error('Поле ввода Max не появилось после 3 попыток с перезагрузкой');
 
   // Прикрепляем картинку через меню
   const attachButton = page.locator('button[aria-label="Upload file"], button.button--neutral-link.button--link').first();
