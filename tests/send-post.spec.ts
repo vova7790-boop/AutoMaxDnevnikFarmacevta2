@@ -6,6 +6,7 @@ import { generateImage } from '../src/generate-image';
 const PROFILE_DIR = path.resolve('browser-profile');
 const IMAGE_PATH = path.resolve('post-image.png');
 const CONTENT_PATH = path.resolve('post-content.json');
+// Канал «Избранное» (Saved Messages) — целевой канал автопостинга.
 const CHANNEL_URL = 'https://web.max.ru/0';
 
 test('отправить пост с картинкой в канал Max', async ({ playwright }) => {
