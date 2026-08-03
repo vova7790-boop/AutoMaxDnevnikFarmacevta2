@@ -17,3 +17,7 @@ max-login-live.png
 max-login-after.png
 verify-max.png
 max-login.out
+
+# check-max-access.js diagnostic screenshots
+max-access-check.png
+login-verify.png
