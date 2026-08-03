@@ -12,6 +12,8 @@ if (fs.existsSync('.env')) {
   }
 }
 
+const proxyServer = process.env.MAX_PROXY || process.env.HTTPS_PROXY;
+
 export default defineConfig({
   testDir: './tests',
   timeout: 180000,
@@ -23,6 +25,9 @@ export default defineConfig({
   use: {
     trace: 'on-first-retry',
     ignoreHTTPSErrors: true,
+    // Прокси для fixture-тестов (browser/page). Задаётся, только если есть
+    // MAX_PROXY/HTTPS_PROXY — иначе Playwright пытается ходить напрямую.
+    ...(proxyServer ? { proxy: { server: proxyServer } } : {}),
   },
   projects: [
     {
@@ -32,8 +37,9 @@ export default defineConfig({
         launchOptions: {
           executablePath: '/opt/pw-browsers/chromium',
           headless: false,
-          args: ['--no-sandbox', '--disable-setuid-sandbox'],
-          proxy: { server: process.env.HTTPS_PROXY || 'http://127.0.0.1:46877' },
+          // --ssl-version-max=tls1.2 обязателен: егресс-прокси сбрасывает большой
+          // TLS 1.3 ClientHello Chromium (пост-квантовый keyshare).
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--ssl-version-max=tls1.2'],
         },
       },
     },

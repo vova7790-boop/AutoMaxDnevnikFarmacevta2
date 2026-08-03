@@ -43,11 +43,14 @@ test('отправить пост с картинкой в канал Max', asyn
   }
 
   // Используем постоянный профиль браузера (сохраняет IndexedDB с авторизацией)
+  const proxyServer = process.env.MAX_PROXY || process.env.HTTPS_PROXY;
   const context = await playwright.chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
     executablePath: '/opt/pw-browsers/chromium',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    proxy: { server: process.env.MAX_PROXY || process.env.HTTPS_PROXY || 'http://127.0.0.1:36531' },
+    // --ssl-version-max=tls1.2 обязателен: егресс-прокси сбрасывает большой
+    // TLS 1.3 ClientHello Chromium (пост-квантовый keyshare) → web.max.ru не грузится.
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--ssl-version-max=tls1.2'],
+    ...(proxyServer ? { proxy: { server: proxyServer } } : {}),
     ignoreHTTPSErrors: true,
     viewport: { width: 1280, height: 720 },
   });
