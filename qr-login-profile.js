@@ -21,7 +21,7 @@ function status(s) { try { fs.appendFileSync(STATUS, s + '\n'); } catch {} conso
   const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
     headless: false,
     executablePath: '/opt/pw-browsers/chromium',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--ssl-version-max=tls1.2'],
     proxy: { server: process.env.HTTPS_PROXY || 'http://127.0.0.1:46877' },
     ignoreHTTPSErrors: true,
     viewport: { width: 900, height: 820 },
