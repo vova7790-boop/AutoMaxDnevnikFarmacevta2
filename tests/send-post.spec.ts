@@ -6,8 +6,11 @@ import { generateImage } from '../src/generate-image';
 const PROFILE_DIR = path.resolve('browser-profile');
 const IMAGE_PATH = path.resolve('post-image.png');
 const CONTENT_PATH = path.resolve('post-content.json');
-// Канал «Избранное» (Saved Messages) — целевой канал автопостинга.
+// Канал «Избранное» (Saved Messages) — целевой канал автопостинга, URL /0.
+// ВНИМАНИЕ: не путать с отдельным каналом «Избранное (крео)» — постим только
+// в обычное «Избранное». Запасной клик ниже использует ТОЧНОЕ совпадение имени.
 const CHANNEL_URL = 'https://web.max.ru/0';
+const CHANNEL_TITLE = 'Избранное';
 
 test('отправить пост с картинкой в канал Max', async ({ playwright }) => {
   test.setTimeout(600000); // 10 минут — генерация картинки через kie.ai может занять до 5 мин
@@ -71,6 +74,16 @@ test('отправить пост с картинкой в канал Max', asyn
     }
     await page.waitForFunction(() => document.body.innerText.length > 50, { timeout: 45000 }).catch(() => {});
     await page.waitForTimeout(3000);
+    // Запасной путь: если прямой URL не открыл канал (Max снова сменил маршрут),
+    // кликаем по элементу списка чатов «Избранное».
+    if (!(await messageInput.count().catch(() => 0))) {
+      // ТОЧНОЕ совпадение имени — иначе можно случайно открыть «Избранное (крео)».
+      const chatItem = page.getByText(CHANNEL_TITLE, { exact: true }).first();
+      if (await chatItem.count().catch(() => 0)) {
+        await chatItem.click({ timeout: 5000 }).catch(() => {});
+        await page.waitForTimeout(3000);
+      }
+    }
     try {
       await messageInput.waitFor({ state: 'visible', timeout: 45000 });
       composerReady = true;
