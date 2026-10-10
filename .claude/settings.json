@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
       "mcp__Notion__notion-update-page",
       "mcp__Notion__notion-query-data-sources",
