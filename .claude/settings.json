@@ -8,7 +8,9 @@
       "mcp__Notion__notion-fetch",
       "mcp__Notion__notion-search",
       "Bash(xvfb-run:*)",
-      "Bash(HEADER_TEXT=*)"
+      "Bash(HEADER_TEXT=*)",
+      "Bash(cd:*)",
+      "Bash(rm:*)"
     ]
   },
   "hooks": {
